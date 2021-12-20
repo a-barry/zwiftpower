@@ -23,11 +23,11 @@ type Rider struct {
 	LatestEventDate  time.Time
 	Rides            int
 	Races            int
-	Races90          int
-	Races30          int
-	Ftp90            float64
-	Ftp60            float64
-	Ftp30            float64
+	Races90Days      int
+	Races30Days      int
+	Ftp90Days        float64
+	Ftp60Days        float64
+	Ftp30Days        float64
 	LatestRace       string
 	LatestRaceDate   time.Time
 	LatestEvent      string
@@ -47,6 +47,22 @@ type Event struct {
 	EventTitle    string      `json:"event_title"`
 	AvgWkg        interface{} `json:"avg_wkg"`
 	WkgFtp        interface{} `json:"wkg_ftp"`
+	Wkg20min      interface{} `json:"wkg1200"`
+	Wkg5min       interface{} `json:"wkg300"`
+	Wkg2min       interface{} `json:"wkg120"`
+	Wkg1min       interface{} `json:"wkg60"`
+	Wkg30sec      interface{} `json:"wkg30"`
+	Wkg15sec      interface{} `json:"wkg15"`
+	Wkg5sec       interface{} `json:"wkg5"`
+	WFtp          interface{} `json:"wftp"`
+	W20min        interface{} `json:"w1200"`
+	W5min         interface{} `json:"w300"`
+	W2min         interface{} `json:"w120"`
+	W1min         interface{} `json:"w60"`
+	W30sec        interface{} `json:"w30"`
+	W15sec        interface{} `json:"w15"`
+	W5sec         interface{} `json:"w5"`
+	Weight        interface{} `json:"weight[0]"`
 }
 
 // EventDateType so we can use a custom unmarshaller
@@ -70,6 +86,12 @@ func NewClient() (*http.Client, error) {
 		return nil, err
 	}
 
+	/*phpbb3_lswlk_u=57526;
+	phpbb3_lswlk_k=ec01eab84919a3dd;
+	phpbb3_lswlk_sid=cdeaf271fcffbdf0be7499e33193d133*/
+
+	//jar.SetCookies()
+
 	client := &http.Client{
 		Jar: jar,
 	}
@@ -79,7 +101,9 @@ func NewClient() (*http.Client, error) {
 
 // ImportZP imports data about the club with this ID
 func ImportZP(client *http.Client, clubID int) ([]Rider, error) {
-	data, err := getJSON(client, fmt.Sprintf("https://www.zwiftpower.com/cache3/teams/%d_riders.json", clubID))
+	//	https://zwiftpower.com/api3.php?do=team_riders&id=%d
+	//https://www.zwiftpower.com/cache3/teams/%d_riders.json
+	data, err := getJSON(client, fmt.Sprintf("https://zwiftpower.com/cache3/teams/%d_riders.json", clubID))
 	if err != nil {
 		return nil, fmt.Errorf("getting club data: %v", err)
 	}
@@ -97,8 +121,9 @@ func ImportZP(client *http.Client, clubID int) ([]Rider, error) {
 func ImportRider(client *http.Client, riderID int) (rider Rider, err error) {
 	// I think hitting the profile URL loads the data into the cache
 	log.Printf("ImportRider(%d)", riderID)
-	_, _ = client.Get(fmt.Sprintf("https://www.zwiftpower.com/profile.php?z=%d", riderID))
-	data, err := getJSON(client, fmt.Sprintf("https://www.zwiftpower.com/cache3/profile/%d_all.json", riderID))
+	//_, _ = client.Get(fmt.Sprintf("https://www.zwiftpower.com/profile.php?z=%d", riderID))
+	//https://www.zwiftpower.com/cache3/profile/%d_all.json
+	data, err := getJSON(client, fmt.Sprintf("https://zwiftpower.com/cache3/profile/%d_all.json", riderID))
 	if err != nil {
 		return rider, err
 	}
@@ -151,30 +176,30 @@ func ImportRider(client *http.Client, riderID int) (rider Rider, err error) {
 
 		// Last three months?
 		if daysAgo <= 90 {
-			if wkgFtp > rider.Ftp90 {
-				rider.Ftp90 = wkgFtp
+			if wkgFtp > rider.Ftp90Days {
+				rider.Ftp90Days = wkgFtp
 			}
 
 			if isRace {
-				rider.Races90++
+				rider.Races90Days++
 			}
 		}
 
 		// Last two months?
 		if daysAgo <= 60 {
-			if wkgFtp > rider.Ftp60 {
-				rider.Ftp60 = wkgFtp
+			if wkgFtp > rider.Ftp60Days {
+				rider.Ftp60Days = wkgFtp
 			}
 		}
 
 		// Last month?
 		if daysAgo <= 30 {
 			if isRace {
-				rider.Races30++
+				rider.Races30Days++
 			}
 
-			if wkgFtp > rider.Ftp30 {
-				rider.Ftp30 = wkgFtp
+			if wkgFtp > rider.Ftp30Days {
+				rider.Ftp30Days = wkgFtp
 			}
 		}
 
@@ -197,10 +222,30 @@ func ImportRider(client *http.Client, riderID int) (rider Rider, err error) {
 }
 
 func getJSON(client *http.Client, url string) ([]byte, error) {
-	resp, err := client.Get(url)
+	//resp, err := client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+
 	if err != nil {
 		return []byte{}, err
 	}
+
+	/*phpbb3_lswlk_u=57526;
+	phpbb3_lswlk_k=ec01eab84919a3dd;
+	phpbb3_lswlk_sid=cdeaf271fcffbdf0be7499e33193d133*/
+	//req.AddCookie(&http.Cookie{Name: "phpbb3_lswlk_u", Value: "57526"})
+	//req.AddCookie(&http.Cookie{Name: "phpbb3_lswlk_k", Value: "ec01eab84919a3dd"})
+	//req.AddCookie(&http.Cookie{Name: "phpbb3_lswlk_sid", Value: "cdeaf271fcffbdf0be7499e33193d133"})
+
+	req.AddCookie(&http.Cookie{Name: "CloudFront-Policy", Value: "eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly96d2lmdHBvd2VyLmNvbS8qIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoyMTQ3NDgzNjQ3fX19XX0_"})
+	req.AddCookie(&http.Cookie{Name: "CloudFront-Signature", Value: "7f6sOCtlQZRe90rpvVq9l84rRNbxl4HBsyEqJByfkMsXWzVe2JkpWGGMZ~KZ1W5w9lm~wYTaQM8ZHFO-MCBokO9EsyeeAcxFOd7gIu5OTcFFFankW4L6RBR-o3oS48dIi22zpWjLZAyku4SXlXbhtMUJrLsASioVG~UDe00Kvc3OWw~WAf0a8LkrdMxG4kIOlb7vvKYEKONo7IO5-JxNVq5WDwMJqB43qRrI2dSK3TMDUsugJHd6QmWpaPxQPHDxrH7MkuBaumdUS1138NbwLL8KwVfcLlV~VnooURL~ID~9lLQHfQ11tkASNzeJgYczkBXTGiKeOh9npbElvqlfOg__"})
+	req.AddCookie(&http.Cookie{Name: "CloudFront-Key-Pair-Id", Value: "K2HE75OK1CK137"})
+
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return []byte{}, err
+	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
@@ -246,10 +291,10 @@ func (r Rider) Strings() []string {
 	output[4] = r.LatestEvent
 	output[5] = strconv.Itoa(r.Rides)
 	output[6] = fmt.Sprintf("https://www.zwiftpower.com/profile.php?z=%d", r.Zwid)
-	output[7] = strconv.FormatFloat(r.Ftp30, 'f', 1, 64)
-	output[8] = strconv.FormatFloat(r.Ftp90, 'f', 1, 64)
-	output[9] = strconv.Itoa(r.Races30)
-	output[10] = strconv.Itoa(r.Races90)
+	output[7] = strconv.FormatFloat(r.Ftp30Days, 'f', 1, 64)
+	output[8] = strconv.FormatFloat(r.Ftp90Days, 'f', 1, 64)
+	output[9] = strconv.Itoa(r.Races30Days)
+	output[10] = strconv.Itoa(r.Races90Days)
 	output[11] = strconv.Itoa(r.Races)
 	output[12] = r.LatestRace
 	output[13] = r.LatestRaceDate.Format("2006-01-02")

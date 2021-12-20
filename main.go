@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/lizrice/zwiftpower/zp"
 	"github.com/spf13/cobra"
@@ -22,6 +23,8 @@ var (
 	Limit            int
 	storageClient    *storage.Client
 )
+
+const defaultClub = 4516
 
 func getID(args []string, defaultID int) (id int) {
 	id = defaultID
@@ -89,9 +92,9 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "zp [ID]",
 		Short: "Import data for club ID",
-		Long:  `Default club ID is 2672, Revolution Velo`,
+		Long:  `Default club ID is defaultClub`,
 		Run: func(cmd *cobra.Command, args []string) {
-			clubID := getID(args, 2672)
+			clubID := getID(args, defaultClub)
 			err := ZwiftPower(clubID, Limit)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error getting ZwiftPower data for %d: %v", clubID, err)
@@ -99,6 +102,11 @@ func main() {
 			}
 		},
 	}
+
+	os.Setenv("FILENAME", "C:\\Users\\aaron.FULCRUMSW\\test.csv")
+	//os.Setenv("SPREADSHEET_ID", "1xoEgu0NwGoNEgQWhFJBlDd9QHPmLk4H0XTGovezVxpI")
+	//os.Setenv("SPREADSHEET_SHEET", "Sheet2")
+	os.Setenv("LIMIT", "2")
 
 	var limit int
 	limitString := os.Getenv("LIMIT")
@@ -186,7 +194,7 @@ func ZwiftPower(clubID int, limit int) error {
 
 	for i, rider := range riders {
 		var err error
-		name := rider.Name
+		name := strings.TrimSpace(rider.Name)
 		riders[i], err = zp.ImportRider(client, rider.Zwid)
 		if err != nil {
 			return fmt.Errorf("loading data for %s (%d): %v", name, rider.Zwid, err)
@@ -208,7 +216,7 @@ func ZwiftPower(clubID int, limit int) error {
 }
 
 func HelloZP(w http.ResponseWriter, r *http.Request) {
-	clubID := 2672
+	clubID := defaultClub
 	err := ZwiftPower(clubID, Limit)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting ZwiftPower data for %d: %v", clubID, err)
