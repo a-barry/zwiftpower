@@ -105,7 +105,7 @@ func (sw *spreadsheetWriter) WriteRow(record []string) error {
 	sw.max_rows += 1
 
 	// Ideally we'd work this out based on the data
-	sw.max_cols = 'N'
+	sw.max_cols = 'Z'
 	log.Printf("Spreadsheet data has %d rows", len(sw.values))
 
 	if len(sw.values) >= sw.batch_length {
