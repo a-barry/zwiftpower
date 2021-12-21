@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/lizrice/zwiftpower/zp"
 	"github.com/spf13/cobra"
@@ -24,7 +23,17 @@ var (
 	storageClient    *storage.Client
 )
 
-const defaultClub = 4516
+const (
+	env_ClubID              = "CLUBID"
+	env_Filename            = "FILENAME"
+	env_SpreadsheetID       = "SPREADSHEET_ID"
+	env_SpreadsheetSheet    = "SPREADSHEET_SHEET"
+	env_Limit               = "LIMIT"
+	env_Port                = "PORT"
+	env_CloudFrontSignature = "CLOUDFRONTSIGNATURE"
+	env_CloudFrontPolicy    = "CLOUDFRONTPOLICY"
+	env_CloudFrontKeyPairId = "CLOUDFRONTKEYPAIRID"
+)
 
 func getID(args []string, defaultID int) (id int) {
 	id = defaultID
@@ -40,6 +49,11 @@ func getID(args []string, defaultID int) (id int) {
 }
 
 func main() {
+	clubID, err := strconv.Atoi(os.Getenv(env_ClubID))
+	if err != nil {
+		log.Fatalf("Environment variable %v must be provided.", env_ClubID)
+	}
+
 	httpCmd := &cobra.Command{
 		Use:   "http",
 		Short: "Run as a service",
@@ -55,7 +69,7 @@ func main() {
 				log.Printf("Opened storageClient")
 			}
 
-			port := os.Getenv("PORT")
+			port := os.Getenv(env_Port)
 			if port == "" {
 				port = "8080"
 			}
@@ -76,12 +90,8 @@ func main() {
 		Short: "Import data for rider ID",
 		Run: func(cmd *cobra.Command, args []string) {
 			riderID := getID(args, 98588)
-			client, err := zp.NewClient()
-			if err != nil {
-				fmt.Printf("Error getting client: %v", err)
-			}
 
-			rider, err := zp.ImportRider(client, riderID)
+			rider, err := zp.ImportRider(riderID)
 			if err != nil {
 				fmt.Printf("Error getting rider: %v", err)
 			}
@@ -92,10 +102,8 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "zp [ID]",
 		Short: "Import data for club ID",
-		Long:  `Default club ID is defaultClub`,
 		Run: func(cmd *cobra.Command, args []string) {
-			clubID := getID(args, defaultClub)
-			err := ZwiftPower(clubID, Limit)
+			err := ImportTeam(clubID, Limit)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error getting ZwiftPower data for %d: %v", clubID, err)
 				os.Exit(1)
@@ -103,20 +111,18 @@ func main() {
 		},
 	}
 
-	os.Setenv("FILENAME", "C:\\Users\\aaron.FULCRUMSW\\test.csv")
-	//os.Setenv("SPREADSHEET_ID", "1xoEgu0NwGoNEgQWhFJBlDd9QHPmLk4H0XTGovezVxpI")
-	//os.Setenv("SPREADSHEET_SHEET", "Sheet2")
-	os.Setenv("LIMIT", "2")
-
 	var limit int
-	limitString := os.Getenv("LIMIT")
+	limitString := os.Getenv(env_Limit)
 	if limitString != "" {
 		limit, _ = strconv.Atoi(limitString)
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&Filename, "filename", "f", os.Getenv("FILENAME"), "Output file name")
-	rootCmd.PersistentFlags().StringVarP(&SpreadsheetID, "spreadsheet", "s", os.Getenv("SPREADSHEET_ID"), "Google sheets ID")
-	rootCmd.PersistentFlags().StringVarP(&SpreadsheetSheet, "sheetname", "n", os.Getenv("SPREADSHEET_SHEET"), "Google sheets sheet name")
+	rootCmd.PersistentFlags().StringVarP(&Filename, "filename", "f", os.Getenv(env_Filename), "Output file name")
+	rootCmd.PersistentFlags().StringVarP(&SpreadsheetID, "spreadsheet", "s", os.Getenv(env_SpreadsheetID), "Google sheets ID")
+	rootCmd.PersistentFlags().StringVarP(&SpreadsheetSheet, "sheetname", "n", os.Getenv(env_SpreadsheetSheet), "Google sheets sheet name")
+	rootCmd.PersistentFlags().StringVarP(&zp.CloudFrontPolicy, "CloudFrontPolicy", "a", os.Getenv(env_CloudFrontPolicy), "CloudFrontPolicy")
+	rootCmd.PersistentFlags().StringVarP(&zp.CloudFrontSignature, "CloudFrontSignature", "b", os.Getenv(env_CloudFrontSignature), "CloudFrontSignature")
+	rootCmd.PersistentFlags().StringVarP(&zp.CloudFrontKeyPairId, "CloudFrontKeyPairId", "c", os.Getenv(env_CloudFrontKeyPairId), "CloudFrontKeyPairId")
 	rootCmd.PersistentFlags().IntVarP(&Limit, "limit", "l", limit, "Restrict to retrieving this number of riders' data. 0 means no limit - get them all.")
 	rootCmd.AddCommand(httpCmd)
 	rootCmd.AddCommand(riderCmd)
@@ -164,15 +170,10 @@ func setOutput(filename string) (io.WriteCloser, error) {
 	return f, err
 }
 
-func ZwiftPower(clubID int, limit int) error {
-	client, err := zp.NewClient()
+func ImportTeam(clubID int, limit int) error {
+	riders, err := zp.ImportTeam(clubID, limit)
 	if err != nil {
-		return fmt.Errorf("error getting client: %v", err)
-	}
-
-	riders, err := zp.ImportZP(client, clubID)
-	if err != nil {
-		return fmt.Errorf("error in ImportZP: %v", err)
+		return fmt.Errorf("error in ImportTeam: %v", err)
 	}
 
 	f, err := setOutput(Filename)
@@ -192,16 +193,17 @@ func ZwiftPower(clubID int, limit int) error {
 		writer.Flush()
 	}()
 
-	for i, rider := range riders {
+	// headers
+	err = writer.WriteRow(zp.ColumnHeaders())
+	if err != nil {
+		return fmt.Errorf("writing to file: %v", err)
+	}
+
+	for i, riderDetail := range riders {
 		var err error
-		name := strings.TrimSpace(rider.Name)
-		riders[i], err = zp.ImportRider(client, rider.Zwid)
-		if err != nil {
-			return fmt.Errorf("loading data for %s (%d): %v", name, rider.Zwid, err)
-		}
-		riders[i].Name = name
+
 		// fmt.Printf("%v\n", riders[i])
-		err = writer.WriteRow(riders[i].Strings())
+		err = writer.WriteRow(riderDetail.Strings())
 		if err != nil {
 			return fmt.Errorf("writing to file: %v", err)
 		}
@@ -216,8 +218,14 @@ func ZwiftPower(clubID int, limit int) error {
 }
 
 func HelloZP(w http.ResponseWriter, r *http.Request) {
-	clubID := defaultClub
-	err := ZwiftPower(clubID, Limit)
+	clubID, err := strconv.Atoi(os.Getenv(env_ClubID))
+
+	if err != nil {
+		log.Fatalf("Environment variable %v must be provided.", env_ClubID)
+	}
+
+	err = ImportTeam(clubID, Limit)
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting ZwiftPower data for %d: %v", clubID, err)
 		w.WriteHeader(http.StatusInternalServerError)

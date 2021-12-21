@@ -131,7 +131,7 @@ func TestFormatAsExpected(t *testing.T) {
 }
 
 func TestUnmarshalEvent(t *testing.T) {
-	var r riderData
+	var r riderEvents
 	err := json.Unmarshal([]byte(testdata), &r)
 	if err != nil {
 		t.Errorf("Failed unmarshalling: %v", err)
