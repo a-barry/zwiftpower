@@ -54,7 +54,7 @@ func main() {
 		log.Fatalf("Environment variable %v must be provided.", env_ClubID)
 	}
 
-	httpCmd := &cobra.Command{
+	rootCmd := &cobra.Command{
 		Use:   "http",
 		Short: "Run as a service",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -99,7 +99,7 @@ func main() {
 		},
 	}
 
-	rootCmd := &cobra.Command{
+	localCmd := &cobra.Command{
 		Use:   "zp [ID]",
 		Short: "Import data for club ID",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -124,7 +124,7 @@ func main() {
 	rootCmd.PersistentFlags().StringVarP(&zp.CloudFrontSignature, "CloudFrontSignature", "b", os.Getenv(env_CloudFrontSignature), "CloudFrontSignature")
 	rootCmd.PersistentFlags().StringVarP(&zp.CloudFrontKeyPairId, "CloudFrontKeyPairId", "c", os.Getenv(env_CloudFrontKeyPairId), "CloudFrontKeyPairId")
 	rootCmd.PersistentFlags().IntVarP(&Limit, "limit", "l", limit, "Restrict to retrieving this number of riders' data. 0 means no limit - get them all.")
-	rootCmd.AddCommand(httpCmd)
+	rootCmd.AddCommand(localCmd)
 	rootCmd.AddCommand(riderCmd)
 	rootCmd.Execute()
 }
