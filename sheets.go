@@ -43,7 +43,7 @@ func NewSpreadsheetWriter(ctx context.Context, spreadsheetID string, spreadsheet
 	// Clear the current contents, from second row on. This should leave the formatting intact
 	clearRequest := sheets.BatchClearValuesRequest{
 		Ranges: []string{
-			fmt.Sprintf("%s!A2:N150", sw.sheet),
+			fmt.Sprintf("%s!A2:Z500", sw.sheet),
 		},
 	}
 	_, err = srv.Spreadsheets.Values.BatchClear(sw.id, &clearRequest).Do()
