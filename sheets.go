@@ -35,7 +35,7 @@ func NewSpreadsheetWriter(ctx context.Context, spreadsheetID string, spreadsheet
 		min_rows:     2,
 		max_rows:     500,
 		min_cols:     "A",
-		max_cols:     "BA",
+		max_cols:     "BZ",
 		batch_length: 10,
 		id:           spreadsheetID,
 		sheet:        spreadsheetSheet,
