@@ -35,7 +35,7 @@ func NewSpreadsheetWriter(ctx context.Context, spreadsheetID string, spreadsheet
 	// Start at row 2 to leave the header row in place
 	sw := spreadsheetWriter{
 		min_rows:     1,
-		max_rows:     0,
+		max_rows:     1,
 		min_cols:     "A",
 		max_cols:     "A",
 		batch_length: 10,
@@ -44,13 +44,13 @@ func NewSpreadsheetWriter(ctx context.Context, spreadsheetID string, spreadsheet
 		srv:          srv,
 	}
 
-	// Clear the current contents, from second row on. This should leave the formatting intact
+	// Clear the current contents
 	// clearRequest := sheets.ClearValuesRequest{
 	// 	Ranges: []string{
 	// 		fmt.Sprintf("%s!*", sw.sheet),
 	// 	},
 	// }
-	_, err = srv.Spreadsheets.Values.Clear(sw.id, fmt.Sprintf("%s!*", sw.sheet), &sheets.ClearValuesRequest{}).Do()
+	_, err = srv.Spreadsheets.Values.Clear(sw.id, fmt.Sprintf("%s!A1:ZZ", sw.sheet), &sheets.ClearValuesRequest{}).Do()
 	if err != nil {
 		log.Printf("clearing spreadsheet values: %v", err)
 	}
