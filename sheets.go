@@ -15,7 +15,8 @@ type spreadsheetWriter struct {
 	srv          *sheets.Service
 	min_rows     int
 	max_rows     int
-	max_cols     rune
+	min_cols     string
+	max_cols     string
 	batch_length int // Write to spreadsheet every time we get to this number of rows
 	values       [][]string
 	id           string // Id is the identifier in the sheet's URL
@@ -32,8 +33,9 @@ func NewSpreadsheetWriter(ctx context.Context, spreadsheetID string, spreadsheet
 	// Start at row 2 to leave the header row in place
 	sw := spreadsheetWriter{
 		min_rows:     2,
-		max_rows:     2,
-		max_cols:     'A',
+		max_rows:     500,
+		min_cols:     "A",
+		max_cols:     "BA",
 		batch_length: 10,
 		id:           spreadsheetID,
 		sheet:        spreadsheetSheet,
@@ -43,7 +45,7 @@ func NewSpreadsheetWriter(ctx context.Context, spreadsheetID string, spreadsheet
 	// Clear the current contents, from second row on. This should leave the formatting intact
 	clearRequest := sheets.BatchClearValuesRequest{
 		Ranges: []string{
-			fmt.Sprintf("%s!A2:Z500", sw.sheet),
+			fmt.Sprintf("%s!%s%d:%s%d", sw.sheet, sw.min_cols, sw.min_rows, sw.max_cols, sw.max_rows),
 		},
 	}
 	_, err = srv.Spreadsheets.Values.BatchClear(sw.id, &clearRequest).Do()
@@ -105,7 +107,7 @@ func (sw *spreadsheetWriter) WriteRow(record []string) error {
 	sw.max_rows += 1
 
 	// Ideally we'd work this out based on the data
-	sw.max_cols = 'Z'
+	//sw.max_cols = 'Z'
 	log.Printf("Spreadsheet data has %d rows", len(sw.values))
 
 	if len(sw.values) >= sw.batch_length {
@@ -118,7 +120,7 @@ func (sw *spreadsheetWriter) WriteRow(record []string) error {
 
 func (sw *spreadsheetWriter) Flush() {
 	// Start at row 2 to leave the header row intact
-	rangeData := fmt.Sprintf("%s!A%d:%c%d", sw.sheet, sw.min_rows, sw.max_cols, sw.max_rows)
+	rangeData := fmt.Sprintf("%s!%s%d:%s%d", sw.sheet, sw.min_cols, sw.min_rows, sw.max_cols, sw.max_rows)
 	log.Printf("Writing data to spreadsheet range %s, length %d", rangeData, len(sw.values))
 	values := make([][]interface{}, len(sw.values))
 	for i, row := range sw.values {
