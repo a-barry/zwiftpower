@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"google.golang.org/api/sheets/v4"
+
+	"github.com/takuoki/clmconv"
 )
 
 type spreadsheetWriter struct {
@@ -32,10 +34,10 @@ func NewSpreadsheetWriter(ctx context.Context, spreadsheetID string, spreadsheet
 
 	// Start at row 2 to leave the header row in place
 	sw := spreadsheetWriter{
-		min_rows:     2,
-		max_rows:     500,
+		min_rows:     1,
+		max_rows:     0,
 		min_cols:     "A",
-		max_cols:     "BZ",
+		max_cols:     "A",
 		batch_length: 10,
 		id:           spreadsheetID,
 		sheet:        spreadsheetSheet,
@@ -43,12 +45,12 @@ func NewSpreadsheetWriter(ctx context.Context, spreadsheetID string, spreadsheet
 	}
 
 	// Clear the current contents, from second row on. This should leave the formatting intact
-	clearRequest := sheets.BatchClearValuesRequest{
-		Ranges: []string{
-			fmt.Sprintf("%s!%s%d:%s%d", sw.sheet, sw.min_cols, sw.min_rows, sw.max_cols, sw.max_rows),
-		},
-	}
-	_, err = srv.Spreadsheets.Values.BatchClear(sw.id, &clearRequest).Do()
+	// clearRequest := sheets.ClearValuesRequest{
+	// 	Ranges: []string{
+	// 		fmt.Sprintf("%s!*", sw.sheet),
+	// 	},
+	// }
+	_, err = srv.Spreadsheets.Values.Clear(sw.id, fmt.Sprintf("%s!*", sw.sheet), &sheets.ClearValuesRequest{}).Do()
 	if err != nil {
 		log.Printf("clearing spreadsheet values: %v", err)
 	}
@@ -107,7 +109,7 @@ func (sw *spreadsheetWriter) WriteRow(record []string) error {
 	sw.max_rows += 1
 
 	// Ideally we'd work this out based on the data
-	//sw.max_cols = 'Z'
+	sw.max_cols = clmconv.Itoa(len(record))
 	log.Printf("Spreadsheet data has %d rows", len(sw.values))
 
 	if len(sw.values) >= sw.batch_length {
